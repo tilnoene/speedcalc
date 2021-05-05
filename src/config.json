@@ -1,0 +1,14 @@
+{   
+    "production": "false",
+    "localDatabase": "https://localhost:3000/",
+    "productionDatabase": "",
+
+    "colors": {
+        "primaryBackground": "#FFFFFF",
+        "secondaryBackground": "#FBE9F6",
+        "primaryTitle": "#BA66A3",
+        "secondaryTitle": "#C882B4",
+        "primaryText": "#444143",
+        "secondaryText": "#707070"
+    }
+}
