@@ -13,7 +13,7 @@ import Countdown from '../components/Countdown';
 const Multiplayer = () => {
     let history = useHistory();
 
-    const [ws, setWs] = useState(new WebSocket('ws://speedcalc-server.herokuapp.com/'));
+    const [ws, setWs] = useState(new WebSocket('wss://speedcalc-server.herokuapp.com/')); //ws://localhost:9090
     const [clientId, setClientId] = useState(null);
     const [ownerId, setOwnerId] = useState(null);
     const [gameId, setGameId] = useState(useParams().room);
