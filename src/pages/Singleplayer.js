@@ -8,19 +8,25 @@ import Background from '../components/Background';
 import Question from '../components/Question';
 import InputText from '../components/InputText';
 import Keyboard from '../components/Keyboard';
+import Button from '../components/Button';
 
 const Singleplayer = ({ level=1 }) => {
+    const [keyboardOpened, setKeyboardOpened] = useState(window.innerWidth <= 768);
     const [countdown, setCountdown] = useState(3);
     const [questions, setQuestions] = useState([]);
-    const [loadingQuestions, setLoadingQuestions] = useState(true);
 
     // user stats
     const [errors, setErrors] = useState(0);
     const [currentQuestion, setCurrentQuestion] = useState(1);
+    const [userAnswer, setUserAnswer] = useState('');
 
-    const nextQuestion = () => {
-        setCurrentQuestion(currentQuestion+1);
-        setLoadingQuestions(false);
+    const submitAnswer = ( value ) => {
+        if (value == questions[currentQuestion].answer)
+            setCurrentQuestion(currentQuestion+1);
+        else
+            setErrors(errors+1);
+
+        setUserAnswer('');
     }
 
     useEffect(() => {
@@ -37,15 +43,25 @@ const Singleplayer = ({ level=1 }) => {
 
     if (countdown > 0) return <Countdown number={countdown} />;
     
-    if (!loadingQuestions && currentQuestion === questions.length+1) return <div>FIM! estatísticas</div>;
-
+    if (currentQuestion === questions.length) return <div>FIM! estatísticas</div>;
+    
     return (
         <Background>
             {currentQuestion} / {questions.length}
 
             <Question question={questions[currentQuestion]} />
-            <InputText />
-            <Keyboard />
+            <InputText 
+                handleChange={setUserAnswer} 
+                value={userAnswer} 
+                onKeyPress={submitAnswer}
+            />
+            {keyboardOpened && 
+                <Keyboard 
+                    handleChange={setUserAnswer} 
+                    value={userAnswer}
+                    handleSubmit={submitAnswer}
+                />
+            }
         </Background>
     );
 }

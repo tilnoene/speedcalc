@@ -1,27 +1,38 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useHistory } from 'react-router-dom';
+import { sleep } from '../services/functions';
 import styled from 'styled-components';
 
 import Background from '../components/Background';
 import Button from '../components/Button';
 import InputText from '../components/InputText';
+import Question from '../components/Question';
+import Keyboard from '../components/Keyboard';
+import Countdown from '../components/Countdown';
 
 const Multiplayer = () => {
     let history = useHistory();
 
-    const [inputValue, setInputValue] = useState('');
+    const [ws, setWs] = useState(new WebSocket('ws://localhost:9090'));
     const [clientId, setClientId] = useState(null);
     const [ownerId, setOwnerId] = useState(null);
     const [gameId, setGameId] = useState(useParams().room);
-    const [ws, setWs] = useState(new WebSocket('ws://localhost:9090'));
+    const [inputValue, setInputValue] = useState('');
     const [gameState, setGameState] = useState('waiting');
-    // nickname too
+    const [nickname, setNickName] = useState('matuê');
+    const [playersFinished, setPlayersFinished] = useState(0);
+    const [playersPosition, setPlayersPosition] = useState([]);
 
+    // game
     const [players, setPlayers] = useState([]);
     const [questions, setQuestions] = useState([]);
-    const [currentQuestion, setCurrentQuestion] = useState(0);
+    const [keyboardOpened, setKeyboardOpened] = useState(window.innerWidth <= 768);
+    const [countdown, setCountdown] = useState(3);
+
+    // player stats
     const [errors, setErrors] = useState(0);
-    const [game, setGame] = useState({});
+    const [currentQuestion, setCurrentQuestion] = useState(1);
+    const [userAnswer, setUserAnswer] = useState('');
 
     const createRoom = () => {
         const payLoad = {
@@ -30,7 +41,6 @@ const Multiplayer = () => {
         }
 
         ws.send(JSON.stringify(payLoad));
-
         setOwnerId(clientId);
     }
 
@@ -41,7 +51,7 @@ const Multiplayer = () => {
         const payLoad = {
             'method': 'join',
             'clientId': clientId,
-            'nickname': 'matuê',
+            'nickname': nickname,
             'gameId': gameId
         }
 
@@ -57,6 +67,44 @@ const Multiplayer = () => {
         ws.send(JSON.stringify(payLoad));
     }
 
+    const finishGame = () => {
+        const payLoad = {
+            'method': 'finish',
+            'gameId': gameId
+        }
+
+        ws.send(JSON.stringify(payLoad));
+    }
+
+    useEffect(() => {
+        if (playersFinished > 0 && playersFinished === players.length)
+            finishGame();
+    }, [playersFinished]);
+
+    /*useEffect(() => {
+        if (elapsedTime >= totalTime)
+            finishGame();
+    }, [elapsedTime]);*/
+
+    const submitAnswer = ( value ) => {
+        let payLoad = {
+            'method': 'play',
+            'gameId': gameId,
+            'clientId': clientId,
+            'isError': false
+        }
+
+        if (value == questions[currentQuestion].answer) {
+            setCurrentQuestion(currentQuestion+1);
+        } else {
+            setErrors(errors+1);
+            payLoad.isError = true;
+        }
+
+        setUserAnswer('');
+        ws.send(JSON.stringify(payLoad));
+    }
+    
     // process "create" only one time
     useEffect(() => {
         ws.onmessage = message => {
@@ -80,6 +128,21 @@ const Multiplayer = () => {
 
         if (response.method === 'update') {
             setGameState(response.status);
+
+            let playersFinished = 0;
+            let playersPosition = [];
+            for (let player in response.state){
+                let currentPlayerQuestion = response.state[player].currentQuestion;
+                
+                if (currentPlayerQuestion === questions.length)
+                    playersFinished += 1;
+                
+                playersPosition.push({'nickname': response.state[player].nickname, currentPlayerQuestion});
+            }
+            
+            console.log(playersPosition);
+            setPlayersFinished(playersFinished);
+            setPlayersPosition(playersPosition);
         }
 
         if (response.method === 'join') {
@@ -87,12 +150,27 @@ const Multiplayer = () => {
             setQuestions(response.game.questions);
         }
     }
-    
+
     useEffect(() => {
         if (gameId !== 'multiplayer' && clientId) {
             joinGame();
         }
     }, [clientId, gameId]);
+
+    useEffect(() => {
+        if (gameState === 'running') {
+            console.log('iniciou');
+            setCountdown(2);
+        }
+    }, [gameState]);
+
+    // countdown
+    useEffect(() => {
+        if (countdown > 0 && countdown < 3) {
+            setCountdown(countdown-1);
+            sleep(1000);
+        }
+    }, [countdown]);
 
     // verifica se existe uma sala na URL
     if (gameId === 'multiplayer') {
@@ -109,10 +187,42 @@ const Multiplayer = () => {
 
     // jogo está rodando
     if (gameState === 'running') {
+        if (countdown > 0) return <Countdown number={countdown} />;
+    
+        if (currentQuestion === questions.length) return <div>FIM! estatísticas</div>;
+        
         return (
             <Background>
-                running
+                <p>posições:</p>
+                {playersPosition.map(player => (
+                    <p>{player.nickname}: {player.currentPlayerQuestion}</p>
+                ))}
+
+                {currentQuestion} / {questions.length}
+
+                <Question question={questions[currentQuestion]} />
+                <InputText 
+                    handleChange={setUserAnswer} 
+                    value={userAnswer} 
+                    onKeyPress={submitAnswer}
+                />
+                {keyboardOpened && 
+                    <Keyboard 
+                        handleChange={setUserAnswer} 
+                        value={userAnswer}
+                        handleSubmit={submitAnswer}
+                    />
+                }
             </Background>
+        );
+    }
+
+    // jogo finalizado / estatísticas
+    if (gameState === 'finished') {
+        return (
+            <div>
+                finalizado
+            </div>
         );
     }
 
